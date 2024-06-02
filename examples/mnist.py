@@ -25,7 +25,8 @@ valloader = DataLoader(valset, batch_size=64, shuffle=False)
 
 # Define model
 model = KAN([28 * 28, 64, 10])
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(model)
+device = torch.device("mps")
 model.to(device)
 # Define optimizer
 optimizer = optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-4)
