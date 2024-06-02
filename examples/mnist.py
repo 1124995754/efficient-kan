@@ -1,5 +1,6 @@
-from efficient_kan import KAN
-
+import sys
+sys.path.append(r"/Users/logon/PycharmProjects/efficient-kan-1")
+from src.efficient_kan import KAN
 # Train on MNIST
 import torch
 import torch.nn as nn

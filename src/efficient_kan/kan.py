@@ -54,7 +54,9 @@ class KANLinear(torch.nn.Module):
         self.reset_parameters()
 
     def reset_parameters(self):
-        torch.nn.init.kaiming_uniform_(self.base_weight, a=math.sqrt(5) * self.scale_base)
+        torch.nn.init.kaiming_uniform_(
+            self.base_weight, a=math.sqrt(5) * self.scale_base
+        )
         with torch.no_grad():
             noise = (
                 (
@@ -73,7 +75,9 @@ class KANLinear(torch.nn.Module):
             )
             if self.enable_standalone_scale_spline:
                 # torch.nn.init.constant_(self.spline_scaler, self.scale_spline)
-                torch.nn.init.kaiming_uniform_(self.spline_scaler, a=math.sqrt(5) * self.scale_spline)
+                torch.nn.init.kaiming_uniform_(
+                    self.spline_scaler, a=math.sqrt(5) * self.scale_spline
+                )
 
     def b_splines(self, x: torch.Tensor):
         """
@@ -161,7 +165,7 @@ class KANLinear(torch.nn.Module):
             self.scaled_spline_weight.view(self.out_features, -1),
         )
         output = base_output + spline_output
-        
+
         output = output.view(*original_shape[:-1], self.out_features)
         return output
 
@@ -237,48 +241,63 @@ class KANLinear(torch.nn.Module):
         )
 
 
+# 定义一个名为KAN的类，继承自torch.nn.Module，用于构建神经网络
 class KAN(torch.nn.Module):
+    # 初始化函数，设置KAN模块的参数
     def __init__(
         self,
-        layers_hidden,
-        grid_size=5,
-        spline_order=3,
-        scale_noise=0.1,
-        scale_base=1.0,
-        scale_spline=1.0,
-        base_activation=torch.nn.SiLU,
-        grid_eps=0.02,
-        grid_range=[-1, 1],
+        layers_hidden,  # 隐藏层的输出通道数列表
+        grid_size=5,  # 栅格大小，默认为5
+        spline_order=3,  # 样条插值的阶数，默认为3
+        scale_noise=0.1,  # 噪声比例，默认为0.1
+        scale_base=1.0,  # 基础激活函数的比例，默认为1.0
+        scale_spline=1.0,  # 样条比例，默认为1.0
+        base_activation=torch.nn.SiLU,  # 基础激活函数，默认为SiLU
+        grid_eps=0.02,  # 栅格的epsilon值，默认为0.02
+        grid_range=[-1, 1],  # 栅格的范围，默认为[-1, 1]
     ):
+        # 调用父类（torch.nn.Module）的初始化方法
         super(KAN, self).__init__()
+
+        # 设置类属性
         self.grid_size = grid_size
         self.spline_order = spline_order
 
+        # 创建一个模块列表，用于存储KANLinear层
         self.layers = torch.nn.ModuleList()
+
+        # 遍历隐藏层的输入和输出通道数，创建KANLinear层并添加到self.layers中
         for in_features, out_features in zip(layers_hidden, layers_hidden[1:]):
             self.layers.append(
-                KANLinear(
-                    in_features,
-                    out_features,
-                    grid_size=grid_size,
-                    spline_order=spline_order,
-                    scale_noise=scale_noise,
-                    scale_base=scale_base,
-                    scale_spline=scale_spline,
-                    base_activation=base_activation,
-                    grid_eps=grid_eps,
-                    grid_range=grid_range,
+                KANLinear(  # 创建一个KANLinear实例
+                    in_features,  # 输入通道数
+                    out_features,  # 输出通道数
+                    grid_size=grid_size,  # 栅格大小
+                    spline_order=spline_order,  # 样条插值的阶数
+                    scale_noise=scale_noise,  # 噪声比例
+                    scale_base=scale_base,  # 基础激活函数的比例
+                    scale_spline=scale_spline,  # 样条比例
+                    base_activation=base_activation,  # 基础激活函数
+                    grid_eps=grid_eps,  # 栅格的epsilon值
+                    grid_range=grid_range,  # 栅格的范围
                 )
             )
 
+    # 定义前向传播函数，处理输入数据x
     def forward(self, x: torch.Tensor, update_grid=False):
+        # 遍历所有KANLinear层
         for layer in self.layers:
+            # 如果update_grid为True，更新栅格
             if update_grid:
                 layer.update_grid(x)
+            # 将输入数据传递给当前层，并将结果存储回x
             x = layer(x)
+        # 返回处理后的x
         return x
 
+    # 计算正则化损失，包括激活函数的正则化和熵的正则化
     def regularization_loss(self, regularize_activation=1.0, regularize_entropy=1.0):
+        # 对所有KANLinear层求和，计算正则化损失
         return sum(
             layer.regularization_loss(regularize_activation, regularize_entropy)
             for layer in self.layers
